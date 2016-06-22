@@ -1,3 +1,11 @@
+puavo-os (0.20.0~rc1+c67fbfc085e6d4037636591625e50494951cb4d9) jessie; urgency=medium
+
+  * New release
+  * Fix typos
+  * Git(c67fbfc085e6d4037636591625e50494951cb4d9)
+
+ -- Tuomas Räsänen <tuomasjjrasanen@tjjr.fi>  Wed, 22 Jun 2016 13:49:00 +0300
+
 puavo-os (0.19.0+2639524a247c46635d838e844c0acbaf9e50bb62) jessie; urgency=medium
 
   * New release
