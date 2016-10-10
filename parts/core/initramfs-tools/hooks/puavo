@@ -34,6 +34,9 @@ mkdir -p ${DESTDIR}/usr/bin/                  \
       ${DESTDIR}/usr/sbin/                 \
       ${DESTDIR}/usr/share/puavo/
 
+copy_exec /add_entropy /
+copy_exec /lib/systemd/systemd-random-seed /
+
 copy_exec /usr/bin/lspci              /usr/bin
 copy_exec /usr/bin/lsusb              /usr/bin
 copy_exec /usr/bin/puavo-conf         /usr/bin

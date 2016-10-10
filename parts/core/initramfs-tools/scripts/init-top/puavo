@@ -16,9 +16,36 @@ case $1 in
 esac
 
 if [ "$BOOT" = "puavo" ]; then
+    # /var/lib/systemd/random-seed does contain what?
+
+    echo RUNNING /systemd-random-seed load
+    /systemd-random-seed load
+    sleep 2
+    echo RUNNING /systemd-random-seed save
+    /systemd-random-seed save
+    sleep 2
+    echo RUNNING /systemd-random-seed load
+    /systemd-random-seed load
+    sleep 2
+    echo RUNNING /systemd-random-seed save
+    /systemd-random-seed save
+    sleep 2
+    echo DONE
+    sleep 2
+
     mkdir -p /var/lib/puavo-conf
+
+    echo RUNNING /add_entropy
+    /add_entropy
+    echo DONE
+
+    echo RUNNING puavo-conf-init
     puavo-conf-init
+    sleep 2
+
+    echo RUNNING puavo-conf-update
     puavo-conf-update
+    sleep 2
 fi
 
 # apply kernel module configurations based on puavo-conf here
