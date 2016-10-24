@@ -46,6 +46,8 @@ installdirs :
 	mkdir -p $(DESTDIR)$(datarootdir)/applications
 	mkdir -p $(DESTDIR)$(datarootdir)/icons/hicolor/scalable/status
 	mkdir -p $(DESTDIR)$(datarootdir)/locale/fi/LC_MESSAGES
+	mkdir -p $(DESTDIR)$(datarootdir)/gnome-session/sessions
+	mkdir -p $(DESTDIR)$(datarootdir)/gnome-shell/modes
 	mkdir -p $(DESTDIR)$(datarootdir)/pam-configs
 	mkdir -p $(DESTDIR)$(datarootdir)/puavo-conf/definitions
 	mkdir -p $(DESTDIR)$(datarootdir)/puavo-conf/profile-overwrites
@@ -129,6 +131,12 @@ install : installdirs
 		icons/puavoremoteaccess-grey.svg \
 		icons/puavoremoteaccess-original.svg \
 		icons/puavoremoteaccess-yellow.svg
+
+	$(INSTALL_DATA) -t $(DESTDIR)$(datarootdir)/gnome-session/sessions \
+		sessions/*
+
+	$(INSTALL_DATA) -t $(DESTDIR)$(datarootdir)/gnome-shell/modes \
+		modes/*
 
 	$(INSTALL_DATA) -t $(DESTDIR)$(datarootdir)/puavo-ltsp-client/templates/etc \
 		templates/etc/hosts \

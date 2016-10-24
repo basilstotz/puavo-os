@@ -8,7 +8,6 @@ class desktop::puavodesktop {
           desktop::dconf::turn_off_xrandrplugin,
           # desktop::enable_indicator_power_service,	# XXX needs fixing
           desktop::mimedefaults,
-          ::gnome_shell_session,
           packages,
           webmenu
 

@@ -9,6 +9,6 @@ PUAVO_HOSTTYPE=$(cat /etc/puavo/hosttype)
 
 case "${PUAVO_HOSTTYPE}" in
   fatclient|laptop|preinstalled)
-    cinnamon-session
+    env GNOME_SHELL_SESSION_MODE=puavo gnome-session --session puavo-gnome "$@"
     ;;
 esac
