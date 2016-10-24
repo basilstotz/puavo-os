@@ -53,6 +53,9 @@ firefox
 fontconfig
     Additional fontconfig configurations.
 
+gnome_shell_session
+    Puavo Gnome-Shell session files.
+
 google-earth-stable
     Settings for a particular version of Google Earth.
 

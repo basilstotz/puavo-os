@@ -1,0 +1,3 @@
+[GNOME Session]
+Name=Puavo GNOME
+RequiredComponents=org.gnome.Shell;gnome-settings-daemon;

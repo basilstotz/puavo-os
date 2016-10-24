@@ -1,0 +1,7 @@
+[Desktop Entry]
+Exec=puavo-gnome-session
+Name=Puavo Gnome
+Comment=Puavo Gnome
+TryExec=gnome-session
+Type=Application
+DesktopNames=GNOME-Classic;GNOME;

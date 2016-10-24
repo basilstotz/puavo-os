@@ -1,0 +1,9 @@
+{
+    "parentMode": "user",
+    "stylesheetName": "gnome-classic.css",
+    "enabledExtensions": ["bottom-panel@sharats.me"],
+    "panel": { "left": ["activities", "appMenu"],
+               "center": [],
+               "right": ["a11y", "keyboard", "dateMenu", "aggregateMenu"]
+             }
+}

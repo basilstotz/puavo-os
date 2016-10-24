@@ -1,0 +1,2 @@
+#! /bin/sh
+env GNOME_SHELL_SESSION_MODE=puavo gnome-session --session puavo-gnome "$@"

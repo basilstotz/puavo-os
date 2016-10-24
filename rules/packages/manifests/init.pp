@@ -455,6 +455,7 @@ class packages {
     , 'gnome-session-canberra'
     , 'gnome-settings-daemon'
     , 'gnome-shell'
+    , 'gnome-shell-common'
     , 'gnome-shell-extensions'
     , 'gnome-sushi'
     , 'gnome-system-log'
