@@ -7,6 +7,11 @@ class gnome_shell_extensions {
       recurse => true,
       require => Package['gnome-shell-extensions'];
 
+    '/usr/share/gnome-shell/extensions/bottompanel@tmoer93':
+      source  => 'puppet:///modules/gnome_shell_extensions/gnome-shell-bottom-panel',
+      recurse => true,
+      require => Package['gnome-shell-extensions'];
+
   }
 
   Package <| title == gnome-shell-extensions |>
