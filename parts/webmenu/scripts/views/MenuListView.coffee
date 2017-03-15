@@ -110,9 +110,8 @@ class MenuListView extends ViewMaster
         @navigation.views = @getMenuItemViews()
 
     itemCols: ->
-        views = @getMenuItemViews()
-        if views.length > 0
-            return parseInt( @$el.innerWidth() / views[0].$el.innerWidth() )
+        if views =  @getMenuItemViews()
+            return parseInt( @$el.innerWidth() / views[0].$el.innerWidth())
         else
             return 0
 

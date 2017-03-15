@@ -21,6 +21,7 @@ menutools = require "./menutools"
 {load, readDirectoryD} = require "./load"
 logStartTime = require "./logStartTime"
 dbusRegister = require "./dbusRegister"
+forceFocus = require "./forceFocus"
 createSpawnSocket = require "./createSpawnSocket"
 logger = require "./fluent-logger"
 pkg = require "../package.json"
@@ -182,7 +183,7 @@ module.exports = (gui, Window) ->
     ###*
     # Make menu visible and bring it to current desktop
     ###
-    displayMenu = (viewName) ->
+    displayMenu = ->
         fs.exists userPhotoPath, (exists) ->
           if exists
             config.set("userPhoto", "file://#{ userPhotoPath }")
@@ -191,22 +192,10 @@ module.exports = (gui, Window) ->
 
         menuVisible = true
         console.log "Displaying menu"
-
-        alignWindow(viewName)
         Window.show()
         Window.focus()
-
-    alignWindow = (viewName) ->
-        if viewName == 'logout'
-            # put to right/bottom
-            x = window.window.screen.width  - Window.width
-            y = window.window.screen.height - Window.height
-        else
-            # put to left/bottom
-            x = 0
-            y = window.window.screen.height - Window.height
-
-        Window.moveTo(x,y)
+        Window.setAlwaysOnTop(true)
+        forceFocus(pkg.window.title, 50, 100, 350, 500)
 
     ###*
     # Toggle menu visibility with given view name
@@ -229,14 +218,14 @@ module.exports = (gui, Window) ->
                     Window.hide()
                     setTimeout(displayMenu, 1) # Allow menu to disappear
                 else
-                    displayMenu(currentView)
+                    displayMenu()
                 return
 
             # When view is not changing just toggle menu visibility
             if menuVisible
                 hideWindow()
             else
-                displayMenu(currentView)
+                displayMenu()
 
 
     ###*
@@ -277,13 +266,15 @@ module.exports = (gui, Window) ->
             )
         )
 
+        Window.setAlwaysOnTop(false)
+
         # Use node-webkit to open toolbarless web window
         if cmd.type is "webWindow"
             console.info "Opening web window", cmd.url
             gui.Window.open? cmd.url,
                 width: cmd.width or 1000
                 height: cmd.height or 800
-                "always-on-top": true
+                "always-on-top": false
                 toolbar: false
                 frame: true
                 title: cmd.name

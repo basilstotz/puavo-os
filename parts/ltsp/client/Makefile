@@ -85,6 +85,7 @@ install : installdirs
 		xsessions/*
 
 	$(INSTALL_PROGRAM) -t $(DESTDIR)$(bindir) \
+		puavo-ltsp-client-action \
 		puavo-pulseaudio-setup \
 		puavo-pulseaudio-list \
 		puavo-remote-assistance-applet

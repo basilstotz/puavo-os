@@ -14,7 +14,7 @@ class LogoutButtonView extends ViewMaster
             @bubble "open-logout-view"
 
     context: ->
-        "osIconUrl": "file:///usr/share/icons/Faenza/actions/96/system-shutdown.png"
+        "osIconPath": "/usr/share/icons/Faenza/actions/96/system-shutdown.png"
         name: i18n "logout.exit"
 
 module.exports = LogoutButtonView

@@ -3,12 +3,12 @@
  * @exports {String} kernelArch
  **/
 
-var exec = require("sync-exec");
+var sh = require("execSync");
 var kernelArch;
 
-var result = exec('uname -m');
+var result = sh.exec('uname -m');
 
-if (result.status !== 0) {
+if (result.code !== 0) {
   throw('uname -m failed');
 }
 

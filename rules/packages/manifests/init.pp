@@ -203,7 +203,8 @@ class packages {
     , 'xmoto' ]:
       tag => [ 'tag_games', 'tag_debian', ];
 
-    [ 'dbus-x11'
+    [ 'consolekit'
+    , 'dbus-x11'
     , 'gnome-applets'
     , 'gnome-power-manager'
     , 'gnome-user-guide'

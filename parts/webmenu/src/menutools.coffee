@@ -1,9 +1,10 @@
 
 # Inject .desktop to menu structure
 
+path = require "path"
 stringify = require "json-stable-stringify"
 fs = require "fs"
-exec = require "sync-exec"
+execSync = require "execSync"
 crypto = require "crypto"
 vm = require "vm"
 
@@ -29,17 +30,33 @@ findOsIcon = (id, options) ->
 
   try
     # Return if id is a real path
-    return fs.realpathSync(id)
+    r = fs.realpathSync(id)
+    return r
   catch e
     # Otherwise just continue searching
 
-  for p in options.iconSearchPaths
-    for ext in ["svg", "png", "jpg"]
+  osIconFilePath = options.fallbackIcon
+
+  options.iconSearchPaths.forEach (p) ->
+    ["svg", "png", "jpg"].forEach (ext) ->
       filePath = "#{ p }/#{ id }.#{ ext }"
       if fs.existsSync(filePath)
-        return filePath
+        osIconFilePath = filePath
 
-  return options.fallbackIcon
+  return osIconFilePath
+
+
+normalizeIconPath = (p) ->
+  return p if not p
+
+  # skip if already has a protocol
+  if /^[a-z]+\:.+$/.test(p)
+    return p
+
+  if p[0] is"/"
+    return "file://#{ p }"
+
+  return "file://" + path.join(__dirname, "..", p)
 
 
 isValidMenuLauncher = (o) -> o.name && o.command
@@ -75,7 +92,7 @@ injectDesktopData = (menu, options) ->
       throw new Error("Bad command in: #{ JSON.stringify(menu) }")
 
 
-    code = exec("which '#{ command[0] }' > /dev/null 2>&1")
+    code = execSync.run("which '#{ command[0] }' > /dev/null 2>&1")
     if code isnt 0
       if menu.installer
         menu.useInstaller = true
@@ -121,6 +138,8 @@ injectDesktopData = (menu, options) ->
     _.defaults(menu, desktopEntry)
 
     menu.osIconPath ?= findOsIcon(menu.osIcon, options)
+    menu.osIconPath = normalizeIconPath(menu.osIconPath)
+
 
     if not isValidMenuLauncher(menu) and menu.installer
       menu.useInstaller = true
