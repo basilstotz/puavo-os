@@ -13,7 +13,7 @@
 	dh $@
 
 override_dh_auto_configure:
-	./configure --prefix=/usr
+	env CC="gcc-4.8" CFLAGS="-fPIC" ./configure --prefix=/usr
 
 override_dh_auto_test:
 	echo noop
