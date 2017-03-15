@@ -587,6 +587,9 @@ class packages {
   #
 
   @package {
+    'nodejs-bundle':
+      tag => [ 'tag_devel', 'tag_puavo', ];
+
     'autopoweroff':
       tag => [ 'tag_misc', 'tag_puavo', ];
 

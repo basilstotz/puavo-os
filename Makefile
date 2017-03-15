@@ -76,6 +76,8 @@ install-build-deps: /puavo-os
 		--modulepath 'rules'				\
 		rules/site.pp
 
+	$(_sudo) $(MAKE) -C debs install-build-deps-toolchain
+	$(_sudo) $(MAKE) -C debs toolchain
 	$(_sudo) $(MAKE) -C debs install-build-deps
 
 .PHONY: help
