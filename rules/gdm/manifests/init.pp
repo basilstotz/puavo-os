@@ -19,6 +19,12 @@ class gdm {
                  , Package['gdm3'] ],
       source  => 'puppet:///modules/gdm/greeter.dconf-defaults';
 
+    '/var/lib/gdm3/login-screen.css':
+      ensure  => present,
+      group   => 'Debian-gdm',
+      owner   => 'Debian-gdm',
+      require => Package['gdm3'];
+
     '/usr/share/gdm/greeter/autostart/puavo-remote-assistance-applet.desktop':
       ensure  => link,
       require => [ Package['gdm3'], Package['puavo-ltsp-client'], ],
@@ -29,6 +35,9 @@ class gdm {
     'setup_xsessions':
       require => Package['puavo-ltsp-client'],
       source  => 'puppet:///modules/gdm/setup_xsessions';
+
+    'update_gdm_background':
+      source  => 'puppet:///modules/gdm/update_gdm_background';
   }
 
   Package <|

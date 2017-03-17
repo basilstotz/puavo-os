@@ -2603,11 +2603,6 @@ StScrollBar StButton#vhandle:active {
     box-shadow: 0px 4px 8px rgba(0,0,0,0.9);
 }
 
-#lockDialogGroup {
-    background: #2e3436 url(noise-texture.png);
-    background-repeat: repeat;
-}
-
 .screen-shield-arrows {
     padding-bottom: 3em;
 }

@@ -1,4 +1,5 @@
 @import url("gnome-shell-base.css");
+@import url("/var/lib/gdm3/login-screen.css");
 
 /* FIXME:
    - white edge highlight with text-shadow and icon-shadow for panel-button

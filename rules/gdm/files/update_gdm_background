@@ -1,0 +1,29 @@
+/bin/sh
+
+set -eu
+
+[ "$(id -nu)" = 'Debian-gdm' ] || exit 0
+
+# XXX this is a crappy hack
+
+background_image=$(puavo-conf puavo.greeter.background.default)
+[ -n "$background_image" ] || exit 1
+
+primary_display_size=$(xrandr -q \
+  | perl -ale '
+      $F[1] eq "connected"
+        && $F[2] eq "primary"
+        && $F[3] =~ /^(\d+)x(\d+)\+/ && print "${1}px ${2}px"')
+[ -n "$primary_display_size" ] || return 1
+
+css_path='/var/lib/gdm3/login-screen.css'
+
+cat <<EOF > "${css_path}.tmp"
+#lockDialogGroup {
+  background-image:  url(/usr/share/backgrounds/${background_image});
+  background-repeat: no-repeat;
+  background-size:   ${primary_display_size}
+}
+EOF
+
+mv "${css_path}.tmp" "$css_path"

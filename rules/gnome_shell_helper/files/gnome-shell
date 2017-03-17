@@ -20,6 +20,10 @@ until monitor_is_connected; do
   sleep 2
 done
 
+if [ -w /var/lib/gdm3 ]; then
+  /etc/puavo-conf/scripts/update_gdm_background || true
+fi
+
 # Not using exec, because this "gnome-shell"
 # process must exist so that "adm-x" tool finds us.
 # XXX It pgreps the exact command-line arguments, so do not change shell
