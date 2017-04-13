@@ -1,0 +1,2 @@
+PUAVO_SESSION_PATH="/var/lib/puavo-desktop/users/${USER}/puavo_session.json"
+export PUAVO_SESSION_PATH
