@@ -264,21 +264,31 @@ cleanup_previous_runs() {
 
 ensure_enough_available_diskspace() {
   rdiffs_dir=$1
+  next_image_tmppath=$2
 
   # 133% of the space taken by the current image is probably enough
   # for updating to new image
   required_diskspace=$(stat -c '1.33 * %s' "${images_dir}/ltsp.img" \
 			 | bc -l | xargs printf %.0f)
+  [ -n "$required_diskspace" ] || return 0
+
+  diskspace_taken_by_tmp_image="$(stat -c '%s' "${next_image_tmppath}" 2>/dev/null)" || true
+  if [ -z "$diskspace_taken_by_tmp_image" ]; then
+    diskspace_taken_by_tmp_image=0
+  fi
+  required_subtracted_diskspace=$(($required_diskspace - $diskspace_taken_by_tmp_image))
 
   for dir in "$images_dir" "$rdiffs_dir"; do
     diskspace=$(stat -f -c '%S * %a' "$dir" | bc -l | xargs printf %.0f)
-    if [ "$diskspace" -lt "$required_diskspace" ]; then
+    if [ "$diskspace" -lt "$required_subtracted_diskspace" ]; then
       msg="Only $diskspace bytes available on $dir,"
-      msg="$msg need $required_diskspace bytes"
+      msg="$msg need $required_subtracted_diskspace bytes"
       log err "$msg"
       return 1
     fi
   done
+
+  return 0
 }
 
 ensure_that_default_image_is_the_current_one() {
@@ -388,7 +398,7 @@ get_next_image() {
 
   cleanup_previous_runs "$rdiffs_dir" "${next_image}.tmp" "$rdiff_filename"
 
-  ensure_enough_available_diskspace "$rdiffs_dir"
+  ensure_enough_available_diskspace "$rdiffs_dir" "${images_dir}/${next_image}.tmp"
 
   for image_server in $image_server_list; do
     try_rdiff_update_from_imageserver "$image_server"   \
