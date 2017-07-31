@@ -1,0 +1,16 @@
+---
+
+programs:
+  - id: custom-program
+    type: custom
+    name: Oma ohjelma
+    icon: /usr/share/icons/webmenu.png
+    command: zenity --notification --text="Hello world!"
+
+categories:
+
+  - id: custom-category
+    name: Omia ohjelmia
+    position: 2
+    programs:
+      - custom-program

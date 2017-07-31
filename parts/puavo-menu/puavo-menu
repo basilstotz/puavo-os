@@ -1,0 +1,868 @@
+#!/usr/bin/python2
+# -*- coding: utf-8 -*-
+
+# PuavoMenu experimental prototype
+
+# TODO
+# ====
+#
+# OHJELMIEN KÄYNNISTYS
+#  - jotain feedbackia siitä, että ohjelmaa ollaan käynnistämässä?
+#  - jotain viestiä siitäkin, jos ohjelma ei käynnistykkään?
+#  - oikeat systeemipainikkeet jotka tekevät oikeasti jotain
+#
+# ETSINTÄ
+#  - konditionaaliset kuvakkeet ja valikot (ja ehkä myös kategoriat)
+#  - "keywords" -määre ohjelmille; lisäavainsanoja hakua varten 
+#  - rajaa oikein sitä mitä hakukenttään voi syöttää (gtk.entryllä voi olla filttereitä)
+#  - tyhjennä search kun kategoria vaihtuu kesken etsinnän (self.__search.disconnect("changed"),
+#    http://zetcode.com/gui/pygtk/signals/ -> "Blocking an event handler")
+#  - searchin keskeytys escillä? (tarvii ehkä jonkun keskeytä-napin muutenkin?)
+#
+# ULKOASU
+#  - kategoriatabit on rumia
+#  - kuvakepainikkeiden ja avatarin tekstejä EI KLIPATA LAINKAAN!
+#  - menupainikkeiden tekstit voivat olla kahdella rivillä, mutta kahdelle riville ei ole tilaa!
+#  - hiiren kursorin vaihto (http://faq.pygtk.org/index.py?req=show&file=faq05.006.htp)
+#  - kunnolliset kategoriatabit (piirrä ne itse jos muu ei auta)
+#  - feidaa separator linesien värejä/alphaa keskeltä päätyihin mennessä?
+#  - laske hostnamen ja sen separatorin Y-sijainti paremmin
+#  - lokalisoi itse ohjelma
+#
+# LATAUS/TOIMINTA
+#  - window show/hide tarpeen mukaan, ikkunan sijoitus oikeaan paikkaan
+#  - lisää kategoriat listaan niiden "position"-parametrin mukaan
+#  - avaa avatar-napista oikeasti jotain
+#  - lataa muitakin kuvia kuin PNG (ainakin XPM on käytössä parilla ohjelmalla, SVG:t olis kivoja)
+#  - cacheta lokalisoidut tekstit, ei niitä tarvii kaivaa esiin koko ajan kun ohjelmien kanssa muljaa
+#  - lataa menutiedostot ja kuvakkeet vasta sitten kun ohjelmaikkuna on jo auki (tai ohjelma on
+#    käynnissä); lataa resurssit taustasäikeessä
+#  - right-click developer mode menu (reloadaa konfigit (atomisesti taustasäikeessä),
+#    näytä tarkatfavestatistiikat, yms.)
+#
+# MUUTA
+#  - Python 3 + PyGObjects -porttaus (TÄMÄ ON TÄRKEÄ)
+#  - tunge kaikki kuvakkeet yhteen atlakseen, tee oikea rectangle packing ja tue useita atlas-kuvia
+#  - siirrä system buttonit luokan sisälle, mutta anna kustomoida niitä jotenkin
+#  - iconbutton.py:n sisältö on suurimmaksi osaksi copy-pastea, koodista voi poistaa ainakin puolet
+
+# http://faq.pygtk.org/index.py?req=edit&file=faq06.004.htp
+
+import re           # for case-insensitive string matching during searching
+import os.path
+import subprocess
+import time
+import yaml
+
+import gtk
+import cairo
+import pango
+import gobject
+
+import iconcache
+import iconbutton
+import avatarbutton
+import menu_parser
+import utils
+
+# Size of the main menu window. Can be changed, but you have to change other element sizes too
+# to accommodate the new size.
+WINDOW_WIDTH = 955
+WINDOW_HEIGHT = 592
+
+# Main programs list (also used to position/size the faves list)
+PROGRAMS_TOP = 75
+PROGRAMS_LEFT = 10
+PROGRAMS_HEIGHT = 375
+PROGRAMS_WIDTH = 618
+FAVES_TOP = PROGRAMS_TOP + PROGRAMS_HEIGHT + 20
+
+# Icons per row in the programs/faves lists. DO NOT CHANGE unless you also make the window wider!
+# The lists don't have horizontal scrollbars.
+PROGRAMS_PER_ROW = 4
+
+# Sidebar
+SIDEBAR_TOP = 80
+SIDEBAR_LEFT = PROGRAMS_LEFT + PROGRAMS_WIDTH + 20
+SIDEBAR_WIDTH = WINDOW_WIDTH - SIDEBAR_LEFT - 10
+
+USER_AVATAR_LEFT = SIDEBAR_LEFT
+USER_AVATAR_TOP = 10
+USER_AVATAR_SIZE = 48       # FIXME: this should be in avatar.py
+
+SIDEBAR_SEPARATOR = { "type": "separator" }
+
+# TODO: these are "internal", so they should be inside the menu class
+SIDEBAR_BUTTONS = [
+    {
+        "id": "system-settings",
+        "title": {
+            "en": "System settings",
+            "fi": "Järjestelmän asetukset",
+            "sv": "Systeminställningar",
+            "de": "Systemeinstellungen"
+        },
+        "description": "Muokkaa järjestelmän asetuksia",
+        "icon": "/usr/share/icons/Faenza/categories/96/applications-system.png",
+    },
+
+    #SIDEBAR_SEPARATOR,
+
+    {
+        "id": "change-password",
+        "title": {
+            "en": "Change your password",
+            "fi": "Muuta salasanaasi",
+            "sv": "Lösenord",
+            "de": "Passwort"
+        },
+        "description": {
+            "fi": "Vaihda salasanaa",
+            "en": "Change your password",
+        },
+        "icon": "/usr/share/icons/Faenza/emblems/96/emblem-readonly.png",
+    },
+
+    {
+        "id": "support",
+        "title": {
+            "en": "Support",
+            "fi": "Tukisivusto",
+            "sv": "Stöd",
+            "de": "Support"
+        },
+        "icon": "/usr/share/icons/Faenza/status/96/dialog-question.png",
+    },
+
+    #SIDEBAR_SEPARATOR,
+
+    {
+        "id": "shutdown",
+        "title": {
+            "en": "Shut down",
+            "fi": "Sammuta",
+        },
+        "icon": "/usr/share/icons/Faenza/actions/96/system-shutdown.png",
+    },
+
+    {
+        "id": "restart",
+        "title": {
+            "en": "Restart",
+            "fi": "Käynnistä uudelleen",
+            "sv": "Starta om",
+            "de": "Neustarten"
+        },
+        "icon": "/usr/share/icons/Faenza/apps/96/system-restart.png",
+    },
+
+    {
+        "id": "logout",
+        "title": {
+            "en": "Logout",
+            "fi": "Kirjaudu ulos",
+            "sv": "Logga ut",
+            "de": "Abmelden"
+        },
+        "icon": "/usr/share/icons/Faenza/actions/96/gnome-logout.png",
+    },
+
+    {
+        "id": "lock-screen",
+        "title": {
+            "en": "Lock screen",
+            "fi": "Lukitse näyttö",
+            "sv": "Lås skärmen",
+            "de": "Bildschirm sperren"
+        },
+        "icon": "/usr/share/icons/Faenza/actions/96/system-lock-screen.png",
+    },
+
+    {
+        "id": "sleep-mode",
+        "title": {
+            "en": "Sleep",
+            "fi": "Unitila",
+            "sv": "Strömsparläge",
+            "de": "Schlafen"
+        },
+        "icon": "/usr/share/icons/Faenza/apps/96/system-suspend.png",
+    },
+]
+
+
+# TODO: This needs to be actually configurable!
+LANGUAGE = "fi"
+
+
+# TODO: Make this better
+def error_message(parent, message):
+    md = gtk.MessageDialog(parent, 
+            gtk.DIALOG_DESTROY_WITH_PARENT | gtk.DIALOG_MODAL, gtk.MESSAGE_ERROR, 
+            gtk.BUTTONS_OK, message)
+    md.run()
+    md.destroy()
+
+
+def localize(where):
+    #print("localize(): where={0}".format(where))
+    if where is None:
+        #print("  -> nothing")
+        return None
+    elif type(where) is str:
+        #print("  -> returning the only string")
+        return where
+    elif LANGUAGE in where:
+        #print("  -> returning string for {0}".format(LANGUAGE))
+        return where[LANGUAGE]
+    elif "en" in where:
+        #print("  -> an English string exists, returning it")
+        return where["en"]
+    else:
+        #print("  -> no localized string available, returning first available")
+        return where[list(where)[0]]
+
+
+class MenuWindow(gtk.Window):
+    def __init__(self, params={}):
+        super(MenuWindow, self).__init__()
+        self.__gobject_init__()
+
+        self.__programs = params["programs"]
+        self.__menus = params["menus"]
+        self.__categories = params["categories"]
+        self.__faves = params["faves"]
+        self.__menu_id = None       # stored so we can restore the view after searching
+        self.__category_number = params["initial_category"]
+
+        if (self.__category_number < 0) or (self.__category_number > len(self.__categories) - 1):
+            self.__category_number = 0
+
+        self.set_decorated(False)
+        self.set_has_frame(False)
+        self.set_resizable(False)
+        self.set_skip_taskbar_hint(False)
+        self.set_skip_pager_hint(False)
+        self.set_title("PuavoMenu PyGTK prototype")
+        self.connect("destroy", gtk.main_quit)
+        self.set_size_request(WINDOW_WIDTH, WINDOW_HEIGHT)
+        self.set_position(gtk.WIN_POS_CENTER)
+
+        # Background image for top-level menus
+        self.__menu_background = cairo.ImageSurface.create_from_png("menu_back.png")
+
+        if (self.__menu_background.get_width() != 150) or (self.__menu_background.get_height() != 110):
+            print("WARNING: The top-level menu background image is not sized 150x100!")
+
+        # Top-level container for everything. Every element has a fixed position and size,
+        # because the menu isn't resizable.
+        self.__main_container = gtk.Fixed()
+
+        # ------------------------------------------------------------------------------------------
+        # Menus/programs list
+
+        # --------------------------------------------------
+        # Category tabs
+
+        self.__category_buttons = gtk.Notebook()
+        self.__category_buttons.set_size_request(350, -1)
+
+        for c in self.__categories:
+            frame = gtk.Frame()
+            label = gtk.Label(localize(c["name"]))
+            frame.show()
+            label.show()
+            self.__category_buttons.append_page(frame, label)
+
+        self.__category_buttons.set_current_page(self.__category_number)
+        self.__category_buttons.connect("switch-page", self.__clicked_category)
+        self.__category_buttons.show()
+        self.__main_container.put(self.__category_buttons, PROGRAMS_LEFT, 10)
+
+        # --------------------------------------------------
+        # Back button
+
+        self.__back_button = gtk.Button()
+        self.__back_button.set_label("<<")
+        self.__back_button.connect("clicked", self.__clicked_back_button)
+        self.__back_button.set_size_request(50, -1)
+        self.__main_container.put(self.__back_button, 10, 45)
+
+        # --------------------------------------------------
+        # Search box
+
+        self.__search = gtk.Entry()
+        self.__search.set_size_request(150, 30)
+        self.__search.set_max_length(10)
+        self.__search.set_icon_from_stock(1, gtk.STOCK_FIND)
+        self.__search.connect("changed", self.__do_search)
+        self.__search.show()
+        self.__main_container.put(self.__search, PROGRAMS_LEFT + PROGRAMS_WIDTH - 150, 20)
+
+        # --------------------------------------------------
+        # Menu label and description
+
+        self.__menu_title = gtk.Label()
+        self.__menu_title.set_size_request(PROGRAMS_WIDTH, -1)
+        self.__menu_title.set_ellipsize(pango.ELLIPSIZE_END)
+        self.__menu_title.set_justify(gtk.JUSTIFY_LEFT)
+        self.__menu_title.set_alignment(0.0, 0.0)
+        self.__menu_title.set_use_markup(True)
+        self.__menu_title.set_markup("<big>Valikon nimi</big>  <small>valikon kuvaus</small>")
+        self.__menu_title.hide()
+        self.__main_container.put(self.__menu_title, 70, 50)
+
+        # --------------------------------------------------
+        # Main programs list
+
+        self.__programs_container = gtk.ScrolledWindow()
+        self.__programs_container.set_size_request(PROGRAMS_WIDTH, PROGRAMS_HEIGHT)
+        self.__programs_container.set_policy(gtk.POLICY_NEVER, gtk.POLICY_AUTOMATIC)
+        self.__programs_container.set_shadow_type(gtk.SHADOW_NONE)
+        self.__programs_container.show()
+        self.__programs_icons = gtk.Fixed()
+        self.__programs_container.add_with_viewport(self.__programs_icons)
+        self.__main_container.put(self.__programs_container, PROGRAMS_LEFT, PROGRAMS_TOP)
+
+        # --------------------------------------------------
+        # Create the initial buttons
+
+        self.__menu_buttons = []
+        self.__create_menu_buttons(self.__category_number, None, False)
+
+        # ------------------------------------------------------------------------------------------
+        # Faves list
+
+        faves_sep = utils.SeparatorLine(orientation=gtk.ORIENTATION_HORIZONTAL)
+        faves_sep.set_size_request(PROGRAMS_WIDTH, 1)
+        faves_sep.show()
+        self.__main_container.put(faves_sep, PROGRAMS_LEFT, PROGRAMS_TOP + PROGRAMS_HEIGHT + 10)
+
+        self.__faves_container = gtk.ScrolledWindow()
+        self.__faves_container.set_size_request(PROGRAMS_WIDTH, iconbutton.PROGRAM_BUTTON_HEIGHT + 2)
+        self.__faves_container.set_policy(gtk.POLICY_NEVER, gtk.POLICY_NEVER)   # no scrollbars at all
+        self.__faves_container.set_shadow_type(gtk.SHADOW_NONE)
+        self.__faves_icons = gtk.Fixed()
+        self.__faves_container.add_with_viewport(self.__faves_icons)
+        self.__main_container.put(self.__faves_container, PROGRAMS_LEFT, FAVES_TOP)
+
+        # Create initial faves
+        self.__fave_buttons = []
+        self.__create_faves()
+        self.__faves_container.show()
+
+        # ------------------------------------------------------------------------------------------
+        # Sidebar
+
+        sidebar_sep = utils.SeparatorLine(orientation=gtk.ORIENTATION_VERTICAL)
+        sidebar_sep.set_size_request(1, WINDOW_HEIGHT - (10 * 2))
+        sidebar_sep.show()
+        self.__main_container.put(sidebar_sep, SIDEBAR_LEFT - 10, 10)
+
+        # --------------------------------------------------
+        # User avatar and name
+
+        self.__user = avatarbutton.AvatarButton(
+            width=SIDEBAR_WIDTH,
+            avatar_size=USER_AVATAR_SIZE,
+            avatar_path=params.get("user_avatar", ""),
+            user_name=params.get("user_name", ""))
+        self.__user.connect("clicked", self.__clicked_user_button)
+        self.__user.show()
+        self.__main_container.put(self.__user, USER_AVATAR_LEFT, USER_AVATAR_TOP)
+
+        avatar_sep = utils.SeparatorLine(orientation=gtk.ORIENTATION_HORIZONTAL)
+        avatar_sep.set_size_request(SIDEBAR_WIDTH, 1)
+        avatar_sep.show()
+        self.__main_container.put(avatar_sep, USER_AVATAR_LEFT, USER_AVATAR_TOP + USER_AVATAR_SIZE + 10)
+
+        # --------------------------------------------------
+        # "System" buttons
+
+        yp = SIDEBAR_TOP
+
+        for button in SIDEBAR_BUTTONS:
+            if ("type" in button) and (button["type"] == "separator"):
+                # separator lines in the sidebar are 75% of the width and centered
+                # TODO: these lines are nasty hacks
+                sep = utils.SeparatorLine(orientation=gtk.ORIENTATION_HORIZONTAL)
+                sep.set_size_request(SIDEBAR_WIDTH / 4 * 3, 1)
+                sep.show()
+                self.__main_container.put(sep, SIDEBAR_LEFT + SIDEBAR_WIDTH / 8, yp + 10)
+                yp += 21
+            else:
+                btn = iconbutton.SystemButton(
+                    parent=self,
+                    width=SIDEBAR_WIDTH,
+                    label=localize(button["title"]),
+                    icon=iconcache.icons32[button["icon"]],
+                    tooltip=localize(button.get("description", None)))
+
+                btn.connect("clicked", self.__clicked_system_button, button["id"])
+                btn.show()
+                self.__main_container.put(btn, SIDEBAR_LEFT, yp)
+                yp += iconbutton.SYSTEM_BUTTON_HEIGHT
+
+        # --------------------------------------------------
+        # Host name and release name/type
+
+        # WARNING: This height depends on how big the text is!
+        host_y = WINDOW_HEIGHT - 54
+
+        host_sep = utils.SeparatorLine(orientation=gtk.ORIENTATION_HORIZONTAL)
+        host_sep.set_size_request(SIDEBAR_WIDTH, 1)
+        host_sep.show()
+        self.__main_container.put(host_sep, SIDEBAR_LEFT, host_y)
+
+        self.__hostname_label = gtk.Label()
+        self.__hostname_label.set_size_request(SIDEBAR_WIDTH, -1)
+        self.__hostname_label.set_ellipsize(pango.ELLIPSIZE_END)
+        self.__hostname_label.set_justify(gtk.JUSTIFY_CENTER)
+        self.__hostname_label.set_alignment(0.5, 0.5)
+        self.__hostname_label.set_use_markup(True)
+        # TODO: "big" and "small" are not good sizes, we need to be explicit. If the UI font sizes
+        # change, this can go haywire. See the comment above where "host_y" is calculated.
+        self.__hostname_label.set_markup("<big>{0}</big>\n<small>{1} ({2})</small>".format(
+            params.get("hostname", "<Unknown hostname>"),
+            params.get("release_name", "<Unknown release>"),
+            params.get("release_type", "(<Unknown type>)")))
+        self.__hostname_label.show()
+        self.__main_container.put(self.__hostname_label, SIDEBAR_LEFT, host_y + 10)
+
+        # ------------------------------------------------------------------------------------------
+        # All done
+
+        self.add(self.__main_container)
+        self.__main_container.show()
+
+        # DO NOT CALL self.show_all() HERE, the window has hidden elements that are
+        # shown/hidden on demand
+
+        self.show()
+        self.__search.grab_focus()
+
+    # ----------------------------------------------------------------------------------------------
+    # Programs list management
+
+    # Inserts the new buttons into the programs list, replacing whatever was in it before
+    def __put_buttons_in_list(self, new_buttons):
+        for b in self.__menu_buttons:
+            b.destroy()
+
+        self.__menu_buttons = new_buttons
+
+        # Insert the new buttons into the view (these coordinates are relative to the
+        # upper left corner of the scrolled view)
+        xp = 0
+        yp = 0
+
+        for index in range(0, len(self.__menu_buttons)):
+            self.__programs_icons.put(self.__menu_buttons[index], xp, yp)
+            xp += iconbutton.PROGRAM_BUTTON_WIDTH
+
+            if (index + 1) % PROGRAMS_PER_ROW == 0:
+                xp = 0
+                yp += iconbutton.PROGRAM_BUTTON_HEIGHT
+
+        self.__programs_icons.show_all()
+
+    # Helper
+    def __make_menu_button(self, id, label, icon, tooltip):
+        button = iconbutton.MenuButton(parent=self, label=label, icon=icon,
+            tooltip=tooltip, background=self.__menu_background)
+        button.connect("clicked", self.__clicked_menu_button, id)
+        return button
+
+    # Helper
+    def __make_program_button(self, id, label, icon, is_fave, tooltip):
+        button = iconbutton.ProgramButton(parent=self, id=id, label=label,
+            icon=icon, is_fave=is_fave, tooltip=tooltip)
+        button.connect("clicked", self.__clicked_program_button, id)
+        return button
+
+    # Takes a category index and (optionally) a menu name, then creates the available
+    # menu and/or program buttons and positions them
+    def __create_menu_buttons(self, category_index, menu_name=None, show_container=True):
+        new_buttons = []
+
+        if menu_name is None:
+            # We're at top level
+            category = self.__categories[category_index]
+
+            if "menus" in category:
+                for id in category["menus"]:
+                    menu = self.__menus[id]
+                    new_buttons.append(self.__make_menu_button(
+                        id=id,
+                        label=localize(menu["name"]),
+                        icon=menu["icon"],
+                        tooltip=localize(menu.get("description", None))))
+
+            if "programs" in category:
+                for id in category["programs"]:
+                    program = self.__programs[id]
+                    new_buttons.append(self.__make_program_button(
+                        id=id,
+                        label=localize(program["name"]),
+                        icon=program["icon"],
+                        is_fave=False,
+                        tooltip=localize(program.get("description", None))))
+        else:
+            # A menu is open
+            menu = self.__menus[menu_name]
+
+            if "programs" in menu:
+                for id in menu["programs"]:
+                    program = self.__programs[id]
+                    new_buttons.append(self.__make_program_button(
+                        id=id,
+                        label=localize(program["name"]),
+                        icon=program["icon"],
+                        is_fave=False,
+                        tooltip=localize(program.get("description", None))))
+
+        if show_container:
+            self.__programs_icons.hide()
+
+        self.__put_buttons_in_list(new_buttons)
+
+        if show_container:
+            self.__programs_icons.show()
+
+    # Searches for programs, updates the button list
+    def __do_search(self, edit):
+        # TODO: Add this filter in the text box, so these characters cannot be typed at all.
+        # Now they can be typed, but they're ignored, creating weird results...
+        key = edit.get_text().strip().translate(None, "*^?{[]}/\\_-+=\"\'!#¤%&()'`@£$‚.,;<>|~")
+
+        #print("Searching for |{0}|".format(key))
+
+        if len(key) == 0:
+            # reset
+            self.__create_menu_buttons(self.__category_number, self.__menu_id, False)
+            return
+
+        matches = []
+
+        for id, p in self.__programs.items():
+            if p["used"]:
+                t = localize(p["name"])
+
+                if re.search(key, t, re.IGNORECASE):
+                    matches.append((id, t))
+
+        # TODO: Need a locale-aware sorting here. Different languages alphabetize differenty.
+        matches.sort(key=lambda x: x[1].lower())
+
+        new_buttons = []
+
+        for m in matches:
+            p = self.__programs[m[0]]
+            new_buttons.append(self.__make_program_button(
+                id=m[0],
+                label=m[1],
+                icon=p["icon"],
+                is_fave=False,
+                tooltip=localize(p.get("description", None))))
+
+        self.__put_buttons_in_list(new_buttons)
+
+    # Changes the menu title/description
+    def __set_menu_title(self, menu_id):
+        menu = all_menus[menu_id]
+
+        if "name" not in menu:
+            self.__menu_title.set_markup("")
+            return
+
+        if "description" in menu:
+            self.__menu_title.set_markup("<big>{0}</big>  <small>{1}</small>".format(
+                localize(menu["name"]), localize(menu["description"])))
+        else:
+            self.__menu_title.set_markup("<big>{0}</big>".format(localize(menu["name"])))
+
+    # ----------------------------------------------------------------------------------------------
+    # Faves handling
+
+    # (Re)creates the faves list
+    def __create_faves(self):
+        faves = []
+
+        for id, count in self.__faves.items():
+            faves.append((id, count))
+
+        faves = sorted(faves, key=lambda f: f[1], reverse=True)
+
+        for b in self.__fave_buttons:
+            b.destroy()
+
+        self.__fave_buttons = []
+
+        for index, f in enumerate(faves[0:4]):
+            program = self.__programs[f[0]]
+            button = iconbutton.ProgramButton(
+                parent=self,
+                id=f[0],
+                label=localize(program["name"]),
+                icon=program["icon"],
+                is_fave=True,
+                tooltip=localize(program.get("description", None)))
+
+            button.connect("clicked", self.__clicked_fave_button, f[0])
+            self.__fave_buttons.append(button)
+            self.__faves_icons.put(button, index * iconbutton.PROGRAM_BUTTON_WIDTH, 0)
+
+        self.__faves_icons.show_all()
+
+    def __increment_faves(self, id):
+        if id not in self.__faves:
+            self.__faves[id] = 0
+
+        self.__faves[id] += 1
+
+    def __save_faves(self):
+        # TODO: Save only once in a minute or so
+        with open("faves.yaml", "w") as out:
+            yaml.dump(self.__faves, out)
+
+    # ----------------------------------------------------------------------------------------------
+    # Launching programs
+
+    def __launch(self, id):
+        program = self.__programs[id]
+        program_type = program.get("type", None)
+
+        if program_type is None:
+            error_message(self, "No type specified for this program.")
+            return False
+
+        # ------------------------------------------------------------------------------------------
+        if (program_type == "desktop") or (program_type == "custom"):
+            command = program.get("command", None)
+
+            if command is None:
+                error_message(self, "No command specified for this program.")
+                return False
+
+            try:
+                cmd = ["sh", "-c", command, "&"]
+                print('  Executing "{0}"'.format(cmd))
+                p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                return True
+            except Exception as e:
+                error_message(self, "Unable to launch the program {0}:\n{1}".format(command, str(e)))
+        # ------------------------------------------------------------------------------------------
+        elif program_type == "web":
+            url = program.get("url", None)
+
+            if url is None:
+                error_message(self, "No address specified for this web link.")
+                return False
+
+            try:
+                print('  Executing "xdg-open {0}"'.format(url))
+                p = subprocess.Popen(["xdg-open", url], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                return True
+            except Exception as e:
+                error_message(self, 'Unable to open the web link "{0}":\n{1}'.format(url, str(e)))
+        # ------------------------------------------------------------------------------------------
+        else:
+            error_message(self, 'Unknown type "{0}"'.format(program_type))
+
+        # Nohting was launched
+        return False
+
+    # ----------------------------------------------------------------------------------------------
+    # Menuitem callbacks
+
+    # Called directly from ProgramButton
+    def add_program_to_desktop(self, id):
+        print('Adding program "{0}" to the desktop'.format(id))
+
+    # Called directly from ProgramButton
+    def add_program_to_panel(self, id):
+        print('Adding program "{0}" to the panel'.format(id))
+
+    # Called directly from ProgramButton
+    def remove_from_faves(self, id):
+        print('Removing program "{0}" from the faves'.format(id))
+        if id in self.__faves:
+            del self.__faves[id]
+            self.__create_faves()
+            self.__save_faves()
+
+    # ----------------------------------------------------------------------------------------------
+    # Button click handlers
+
+    # Change the category
+    def __clicked_category(self, page, page_num, index):
+        print('Category changed to "{0}"'.format(self.__categories[index]["id"]))
+        self.__category_number = index
+        self.__menu_id = None
+        self.__create_menu_buttons(self.__category_number, None, True)
+        self.__back_button.hide()
+        self.__menu_title.hide()
+
+    # Go back to the top level
+    def __clicked_back_button(self, button):
+        print("Clicked the back button")
+        self.__menu_id = None
+        self.__create_menu_buttons(self.__category_number, None, True)
+        self.__back_button.hide()
+        self.__menu_title.hide()
+
+    # Enter submenu
+    def __clicked_menu_button(self, button, menu_id):
+        print('Clicked menu button "{0}", entering menu'.format(menu_id))
+        self.__menu_id = menu_id
+        self.__create_menu_buttons(self.__category_number, menu_id, True)
+        self.__back_button.show()
+        self.__set_menu_title(menu_id)
+        self.__menu_title.show()
+
+    # Launch a program from the program list
+    def __clicked_program_button(self, button, id):
+        prog = self.__programs[id]
+
+        print('Launching program "{0}"'.format(id))
+
+        if self.__launch(id):
+            # TODO: Keep track of the displayed fave buttons and their order.
+            #       Don't recreate them unless the items/order actually changes.
+            self.__increment_faves(id)
+            self.__create_faves()
+            self.__save_faves()
+
+    # Launch a program from the faves list
+    def __clicked_fave_button(self, button, id):
+        prog = self.__programs[id]
+
+        print('Launching faved program "{0}"'.format(id))
+
+        if self.__launch(id):
+            self.__increment_faves(id)
+            self.__create_faves()
+            self.__save_faves()
+
+    # Open the user profile
+    def __clicked_user_button(self, button):
+        print("Clicked the user avatar button")
+
+    # Open a system entry
+    def __clicked_system_button(self, button, id):
+        print('Clicked system button "{0}"'.format(id))
+
+
+gobject.type_register(MenuWindow)
+
+# --------------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------
+
+DESKTOP_SEARCH_PATHS = [
+    "/usr/share/applications",      # the most common location for .desktop files, check it first
+    "/usr/share/applications/kde4",
+    "/usr/local/share/applications",
+    "/home/jarmo/menu",
+]
+
+# Where to search for icons
+ICON_PATHS = [
+    "/usr/share/app-install/icons",
+    "/usr/share/pixmaps",
+    "/usr/share/icons/hicolor/128x128/apps",
+    "/usr/share/icons/Neu/128x128/categories",
+    "/usr/share/icons/Faenza/categories/64",
+    "/usr/share/icons/Faenza/apps/96",
+]
+
+# Which menu files to load and in which order
+MENU_FILES = [
+    "webmenu_all.yaml",
+    "custom.yaml",
+]
+
+# Load menu data
+all_programs, all_menus, categories = menu_parser.parse_menu_files(
+    DESKTOP_SEARCH_PATHS, ICON_PATHS, MENU_FILES)
+
+start_time = time.clock()
+
+# Actually load the icons for all used programs and menus
+for i, p in all_programs.items():
+    if p["used"] and p["icon"]:
+        p["icon"] = iconcache.icons48[p["icon"]]
+    else:
+        p["icon"] = None
+
+for i, m in all_menus.items():
+    if m["used"] and m["icon"]:
+        m["icon"] = iconcache.icons48[m["icon"]]
+    else:
+        m["icon"] = None
+
+end_time = time.clock()
+
+print("Time to load actually the icons: {0} seconds".format(end_time - start_time))
+
+# Load and silently filter the faves list
+faves = {}
+
+if os.path.isfile("faves.yaml"):
+    with open("faves.yaml", "r") as f:
+        faves = yaml.load(f)
+
+real_faves = {}
+
+for f in faves:
+    if (type(f) is str) and (type(faves[f]) is int) and (faves[f] > 0):
+        if f in all_programs:
+            real_faves[f] = faves[f]
+
+faves = real_faves
+
+# Categories have an order, so they have to be a list
+all_categories = []
+
+for i in range(0, len(categories)):
+    all_categories.append([])
+
+for c in categories:
+    #all_categories.append(categories[c])
+    pos = int(categories[c]["position"])
+
+    if (pos < 0) or (pos > len(categories) - 1):
+        pos = 0
+
+    all_categories[pos] = categories[c]
+
+if len(all_categories) == 0:
+    print("WARNING: THERE ARE NO CATEGORIES DEFINED. CREATING A DEFAULT ONE WITH ALL MENUS IN IT.")
+    c = {}
+    c["id"] = "default-category"
+    c["name"] = "Default category"
+    c["menus"] = []
+    c["programs"] = []
+
+    for m in all_menus:
+        c["menus"].append(m)
+
+    all_categories.append(c)
+
+m = MenuWindow({
+    "user_name": "",
+    "user_avatar": "user-photo.png",
+    "hostname": "hostname",
+    "release_name": "release name",
+    "release_type": "release type",
+    # -----
+    "programs": all_programs,
+    "menus": all_menus,
+    "categories": all_categories,
+    "faves": faves,
+    "initial_category": 0,
+})
+
+#iconcache.icons32.save("ulos32.png")
+#iconcache.icons48.save("ulos48.png")
+
+gtk.main()
