@@ -70,6 +70,9 @@ Commands:
   remove PACKAGE                 remove installed PACKAGE
   remove --all                   remove all installed packages
 
+  setup INSTALLER                setup package with an installer
+                                 (install but do not configure package)
+
   show INSTALLER|PACKAGE         show package details
   show -F|--field FIELD PACKAGE  show specific FIELD
 
@@ -633,6 +636,12 @@ install_pkg_with_installer()
 {
     local installer pkg_dir pkg_name pkg_version old_pkg_version old_pkg_dir
 
+    skip_configuration=false
+    if [ "$1" = '--skip-configuration' ]; then
+        skip_configuration=true
+        shift
+    fi
+
     installer=$1
     pkg_dir=$(extract_installer "${installer}") || {
         log_error "failed to extract '${installer}'"
@@ -658,6 +667,11 @@ install_pkg_with_installer()
             log_error "failed to unconfigure package '${pkg_name}'"
             return 1
         }
+    fi
+
+    if $skip_configuration; then
+        log_info "${pkg_name}: installed successfully (skipped configuration)"
+        return 0
     fi
 
     configure_pkg "${pkg_name}" "${pkg_version}" || {
@@ -910,6 +924,10 @@ case "${command}" in
                 show_pkg "$1" ""
                 ;;
         esac
+        ;;
+    setup)
+        assert_args_count -eq 1 "$@"
+        install_pkg_with_installer --skip-configuration "$1"
         ;;
     unconfigure)
         assert_args_count -eq 1 "$@"
