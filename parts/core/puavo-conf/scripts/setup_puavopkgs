@@ -35,7 +35,7 @@ maybe_configure_package() {
     *)
       # package is installed but not configured
       if [ "$(puavo-conf "$puavoconf_key") = 'true' ]; then
-        puavo-pkg configure "$pkgname" || return 1
+        puavo-pkg reconfigure "$pkgname" || return 1
       fi
       ;;
   esac
