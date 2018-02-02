@@ -15,24 +15,44 @@ PUAVO_PKG_ROOTDIR=/var/lib/puavo-pkg
 
 . /etc/puavo-pkg/puavo-pkg.conf
 
-test_puavopkg_installation() {
-  # this is faster than "puavo-pkg show $1"
-  puavopkg=$1
-  installed_path="${PUAVO_PKG_ROOTDIR}/packages/${puavopkg}/installed"
-  [ -h "$installed_path" -a -d "$installed_path" ]
+get_puavopkg_state() {
+  cat "${PUAVO_PKG_ROOTDIR}/packages/${1}/installed/.state" 2>/dev/null \
+    || echo uninstalled
+}
+
+maybe_configure_package() {
+  pkgname=$1
+  puavoconf_key=$2
+
+  case "$(get_puavopkg_state "$pkgname")" in
+    configured)
+      if [ "$(puavo-conf "$puavoconf_key") != 'true' ]; then
+        puavo-pkg unconfigure "$pkgname" || return 1
+      fi
+      ;;
+    uninstalled)
+      ;;
+    *)
+      # package is installed but not configured
+      if [ "$(puavo-conf "$puavoconf_key") = 'true' ]; then
+        puavo-pkg configure "$pkgname" || return 1
+      fi
+      ;;
+  esac
+
+  return 0
 }
 
 # Instead, we now only do this, because smartboard should be
 # configured/unconfigured based on puavo-conf variable
 # "puavo.nonfree.smartboard.enabled".
-if test_puavopkg_installation smartboard; then
-  puavo-pkg reconfigure smartboard || status=1
-fi
+maybe_configure_package smartboard puavo.nonfree.smartboard.enabled \
+  || status=1
 
 # ti-nspire-cx-cas-ss should be configured/unconfigured based on
 # puavo-conf variable "puavo.nonfree.ti_nspire_cx_cas_ss.enabled".
-if test_puavopkg_installation ti-nspire-cx-cas-ss; then
-  puavo-pkg reconfigure ti-nspire-cx-cas-ss || status=1
-fi
+maybe_configure_package ti-nspire-cx-cas-ss \
+                        puavo.nonfree.ti_nspire_cx_cas_ss.enabled \
+  || status=1
 
 exit $status
