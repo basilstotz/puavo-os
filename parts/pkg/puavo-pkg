@@ -320,6 +320,8 @@ configure_pkg()
         return 1
     }
 
+    echo configured > "${pkg_dir}/.state"
+
     log_info "${pkg_name}: configured successfully" || true
 }
 
@@ -370,6 +372,8 @@ unconfigure_pkg()
 
     rm -f "${pkg_link}" || return 1
 
+    echo unconfigured > "${pkg_dir}/.state"
+
     log_info "${pkg_name}: unconfigured successfully"
 }
 
@@ -416,6 +420,8 @@ unpack_upstream_pack()
     ## Remove the upstream pack, it is not needed anymore since we just
     ## unpacked it successfully.
     rm -f "${upstream_pack}"
+
+    echo unpacked > "${pkg_dir}/.state"
 
     log_info "${pkg_name}: unpacked upstream pack successfully"
 }
@@ -551,6 +557,8 @@ download_upstream_pack()
     cache_save_upstream_pack "${pkg_name}" "${pkg_version}" || {
         log_warning "${pkg_name}: failed to save upstream pack to the cache"
     }
+
+    echo downloaded > "${pkg_dir}/.state"
 
     log_info "${pkg_name}: downloaded upstream pack successfully"
 }
