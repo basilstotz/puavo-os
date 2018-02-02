@@ -73,6 +73,8 @@ Commands:
   show INSTALLER|PACKAGE         show package details
   show -F|--field FIELD PACKAGE  show specific FIELD
 
+  unconfigure PACKAGE            unconfigure installed PACKAGE
+
 Files:
   /etc/puavo-pkg/puavo-pkg.conf  configuration file
 
@@ -369,8 +371,6 @@ unconfigure_pkg()
         return 1
     }
     popd >/dev/null || return 1
-
-    rm -f "${pkg_link}" || return 1
 
     echo unconfigured > "${pkg_dir}/.state"
 
@@ -910,6 +910,21 @@ case "${command}" in
                 show_pkg "$1" ""
                 ;;
         esac
+        ;;
+    unconfigure)
+        assert_args_count -eq 1 "$@"
+        pkg_name=$1
+        pkg_version=$(get_installed_pkg_version "$pkg_name")
+        if [ -n "$pkg_version" ]; then
+            if ! unconfigure_pkg "$pkg_name" "$pkg_version"; then
+                log_error "failed to unconfigure package '${pkg_name}'"
+                exit 1
+            fi
+        else
+            log_error \
+              "Can not unconfigure an uninstalled package '${pkg_name}'"
+            exit 1
+        fi
         ;;
     *)
         usage_error "unknown command '${command}'"
