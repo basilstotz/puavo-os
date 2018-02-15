@@ -1,0 +1,39 @@
+#!/bin/sh
+
+set -eux
+
+# XXX This does not fit well with the current packaging style.
+# XXX We should rethink this, or more properly all other packages.
+# XXX This has been done this way to ease the maintenance of our patched
+# XXX kernel, as it gets frequent updates, some of which concern security.
+
+current_release=$(lsb_release -cs)
+
+cd ..
+
+apt-get --download-only -t "$current_release" source linux
+
+dpkg-source --skip-patches -x *.dsc
+
+linux_dir=$(find . -type d -name 'linux-*')
+
+if [ -z "$linux_dir" ]; then
+  echo 'Could not find linux kernel source directory' >&2
+  exit 1
+fi
+
+{
+  echo
+  echo '# puavo-os patches:'
+  ls -1 linux/debian/patches/* | xargs -n 1 basename | sort
+} >> "${linux_dir}/debian/patches/series"
+
+cp -t "$linux_dir" -R linux/debian
+rm -rf linux
+ln -fns "$linux_dir" linux
+
+# needed because we have made changes to "debian/patches/*"
+(
+  cd linux
+  /usr/bin/make -f debian/rules debian/control-real || true
+)
