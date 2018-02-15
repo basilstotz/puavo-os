@@ -37,6 +37,12 @@ if [ "$current_srctree_checksum" = "$old_srctree_checksum" ]; then
 fi
 
 (
+  echo "Getting package source"
+  cd "${pkgworkdir}/${srcpkgname}"
+  debian/scripts/get-orig-source
+)
+
+(
   echo "Installing build dependencies for ${srcpkgname}"
   cd "$pkgworkdir"
   mk-build-deps "${srcpkgname}/debian/control"
@@ -44,11 +50,10 @@ fi
   rm -f "./${srcpkgname}-build-deps_"*.deb
 )
 
-echo "Building ${srcpkgname}"
-
 (
+  echo "Building ${srcpkgname}"
+
   cd "${pkgworkdir}/${srcpkgname}"
-  debian/scripts/get-orig-source
 
   current_deb_version="$(dpkg-parsechangelog -S version \
 			   | sed -E 's/\+build[0-9]+$//')"
