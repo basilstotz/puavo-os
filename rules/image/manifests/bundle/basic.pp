@@ -10,7 +10,6 @@ class image::bundle::basic {
   include ::kernels
   # include ::keyboard_hw_quirks        # XXX do we need this for Debian?
   include ::locales
-  include ::nss
   include ::packages
   include ::plymouth
   include ::puavo_shutdown

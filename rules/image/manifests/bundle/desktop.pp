@@ -22,6 +22,7 @@ class image::bundle::desktop {
   include ::libdvdcss
   include ::network_manager
   include ::notify_changelog
+  include ::nss
   include ::packages::languages::de
   include ::packages::languages::en
   include ::packages::languages::fi
