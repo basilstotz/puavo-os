@@ -15,6 +15,7 @@ packagedirs += cnijfilter2/
 packagedirs += dropbox/
 packagedirs += ekapeli-alku/
 packagedirs += enchanting/
+packagedirs += firefox/
 packagedirs += geogebra/
 packagedirs += geogebra6/
 packagedirs += globilab/

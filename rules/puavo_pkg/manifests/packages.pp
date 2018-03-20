@@ -11,6 +11,7 @@ class puavo_pkg::packages {
 			, 'dropbox'
 			, 'ekapeli-alku'
 			, 'enchanting'
+			, 'firefox'
 			, 'geogebra'
 			, 'geogebra6'
 			, 'globilab'
