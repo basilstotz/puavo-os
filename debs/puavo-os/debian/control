@@ -128,8 +128,8 @@ Depends: ${misc:Depends},
  initramfs-tools,
  puavo-conf,
  rdate,
- rsyslog-relp,
- smartmontools
+ smartmontools,
+ syslog-ng
 Description: Puavo Core Infrastructure
  Bolts and nuts for Puavo OS.
  .
@@ -237,7 +237,6 @@ Depends: ${misc:Depends},
  pxljr,
  qemu-kvm,
  rdiff,
- rsyslog-relp,
  ruby-dnsruby,
  ruby-highline,
  ruby-ipaddress,
@@ -249,6 +248,7 @@ Depends: ${misc:Depends},
  shorewall,
  splix,
  syslinux,
+ syslog-ng,
  sysstat,
  tmux,
  tshark,
