@@ -2,11 +2,37 @@
 
 set -eu
 
-if [ -e /run/puavo/nbd-server ]; then
+send_everything_to_bootserver() {
   cat <<'EOF' > /etc/syslog-ng/conf.d/send_everything_to_bootserver.conf
 destination d_bootserver { tcp("syslog"); };
 log { source(s_src); destination(d_bootserver); };
 EOF
-else
+  rm -f /etc/syslog-ng/conf.d/send_some_to_bootserver_with_cache.conf
+}
+
+send_some_to_bootserver_with_cache() {
   rm -f /etc/syslog-ng/conf.d/send_everything_to_bootserver.conf
+
+  read puavo_domain < /etc/puavo/domain
+  cat <<EOF > /etc/syslog-ng/conf.d/send_some_to_bootserver_with_cache.conf
+destination d_bootserver {
+  tcp("syslog.${puavo_domain}"
+      disk-buffer(
+        reliable(yes)
+        mem-buf-size(1000000)
+        disk-buf-size(200000000)
+      )
+  );
+};
+
+# XXX what about the filter for this?
+
+log { source(s_src); destination(d_bootserver); };
+EOF
+}
+
+if [ -e /run/puavo/nbd-server ]; then
+  send_everything_to_bootserver
+else
+  send_some_to_bootserver_with_cache
 fi
