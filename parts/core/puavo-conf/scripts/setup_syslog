@@ -25,9 +25,20 @@ destination d_bootserver {
   );
 };
 
-# XXX what about the filter for this?
+filter sessions {
+     program('puavo-login')
+  or program('sshd')
+  or (program('systemd')
+       and match('^(Started|Starting|Stopping|Stopped) Session',
+                 value('MESSAGE')))
+  or program('systemd-logind')
+};
 
-log { source(s_src); destination(d_bootserver); };
+log {
+  source(s_src);
+  filter(sessions);
+  destination(d_bootserver);
+};
 EOF
 }
 
