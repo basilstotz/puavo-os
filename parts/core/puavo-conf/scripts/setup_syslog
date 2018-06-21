@@ -10,7 +10,7 @@ EOF
   rm -f /etc/syslog-ng/conf.d/send_some_to_bootserver_with_cache.conf
 }
 
-send_some_to_bootserver_with_cache() {
+send_session_data_to_bootserver_with_cache() {
   rm -f /etc/syslog-ng/conf.d/send_everything_to_bootserver.conf
 
   read puavo_domain < /etc/puavo/domain
@@ -31,8 +31,23 @@ log { source(s_src); destination(d_bootserver); };
 EOF
 }
 
-if [ -e /run/puavo/nbd-server ]; then
-  send_everything_to_bootserver
-else
-  send_some_to_bootserver_with_cache
-fi
+logging_policy="$(puavo-conf puavo.admin.logging.policy)"
+
+case "$logging_policy" in
+  local-only)
+    rm -f /etc/syslog-ng/conf.d/send_everything_to_bootserver.conf \
+          /etc/syslog-ng/conf.d/send_some_to_bootserver_with_cache.conf
+    ;;
+  send-everything-to-bootserver)
+    send_everything_to_bootserver
+    ;;
+  send-session-data-to-bootserver-with-cache)
+    send_session_data_to_bootserver_with_cache
+    ;;
+  *)
+    echo "Unsupported logging policy: ${logging_policy}" >&2
+    exit 1
+    ;;
+esac
+
+exit 0
