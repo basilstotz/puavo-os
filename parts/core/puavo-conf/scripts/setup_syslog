@@ -27,10 +27,10 @@ destination d_bootserver {
 
 filter sessions {
      program('puavo-login')
-  or program('sshd')
+  or (program('sshd')
+       and match('session (opened|closed)', value('MESSAGE')))
   or (program('systemd')
-       and match('^(Started|Starting|Stopping|Stopped) Session',
-                 value('MESSAGE')))
+       and match('^(Started|Starting|Stopping|Stopped) Session', value('MESSAGE')))
   or program('systemd-logind')
 };
 
