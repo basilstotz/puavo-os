@@ -2,13 +2,11 @@
 
 set -eu
 
-# XXX get rid of hosttype handling
-if [ "$(puavo-conf puavo.hosttype)" = 'fatclient' ]; then
-  cat <<'EOF' > /etc/rsyslog.d/send_to_syslogserver.conf
-$ModLoad omrelp
-
-*.* :omrelp:syslog:20514;RSYSLOG_ForwardFormat
+if [ -e /run/puavo/nbd-server ]; then
+  cat <<'EOF' > /etc/syslog-ng/conf.d/send_everything_to_bootserver.conf
+destination d_bootserver { tcp("syslog"); };
+log { source(s_src); destination(d_bootserver); };
 EOF
 else
-  rm -f /etc/rsyslog.d/send_to_syslogserver.conf
+  rm -f /etc/syslog-ng/conf.d/send_everything_to_bootserver.conf
 fi
