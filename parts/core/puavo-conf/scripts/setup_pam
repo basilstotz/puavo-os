@@ -9,17 +9,30 @@ pam_install() {
 pam_install /etc/puavo-conf/files/etc/pam.d/gdm-autologin \
             /etc/pam.d/gdm-autologin
 
+pam_install /etc/puavo-conf/files/etc/pam.d/gdm-password \
+            /etc/pam.d/gdm-password
+
+pam_install /etc/puavo-conf/files/etc/pam.d/i3lock \
+            /etc/pam.d/i3lock
+
+pam_install /etc/puavo-conf/files/etc/pam.d/slock \
+            /etc/pam.d/slock
+
 pam_install /etc/puavo-conf/files/etc/pam.d/sudo \
             /etc/pam.d/sudo
 
 # XXX get rid of hosttype handling
-case "$(puavo-conf puavo.hosttype)" in
-  fatclient)
-    pam_install /etc/puavo-conf/files/etc/pam.d/gdm-password-fatclient \
-                /etc/pam.d/gdm-password
-    ;;
-  laptop)
-    pam_install /etc/puavo-conf/files/etc/pam.d/gdm-password-laptop \
-                /etc/pam.d/gdm-password
+hosttype=$(puavo-conf puavo.hosttype)
+case "$hosttype" in
+  fatclient|laptop)
+    pam_install "/etc/puavo-conf/files/etc/pam.d/puavo-account-${hosttype}" \
+                /etc/pam.d/puavo-account
+    pam_install "/etc/puavo-conf/files/etc/pam.d/puavo-auth-${hosttype}" \
+                /etc/pam.d/puavo-auth
+    pam_install "/etc/puavo-conf/files/etc/pam.d/puavo-session-${hosttype}" \
+                /etc/pam.d/puavo-session
+
+    pam_install "/etc/puavo-conf/files/etc/pam.d/puavo-cached-auth" \
+                /etc/pam.d/puavo-cached-auth
     ;;
 esac
